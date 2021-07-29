@@ -8,46 +8,39 @@ class TimersManager {
   }
   add(timer, ...args) {
     timer.args = args.length ? args : [];
-    if (timer.hasOwnProperty('name') && this._findTimer(timer.name)) {
-      throw new Error('Name already exist');
-    }
     for (const [key, val] of Object.entries(timerModel)) {
       if (val.required === true && !timer.hasOwnProperty(key)) {
         throw new Error('No Required Filed');
       }
       if (
-        (val.type === 'array' &&
-          !Array.isArray(timer[key]) &&
-          timer[key] !== undefined) ||
-        (val.type !== 'array' &&
-          typeof timer[key] !== val.type &&
-          timer[key] !== undefined)
+        (val.type === 'array' && !Array.isArray(timer[key])) ||
+        (val.type !== 'array' && typeof timer[key] !== val.type)
       ) {
         throw new Error('Wrong Type');
       }
-      if (val.hasOwnProperty('min') && timer[key] < val.min) {
+      if (timerModel['delay'].hasOwnProperty('min') && timer[key] < val.min) {
         throw new Error(`${key} less then ${val.min}`);
       }
-      if (val.hasOwnProperty('max') && timer[key] > val.max) {
+      if (timerModel['delay'].hasOwnProperty('max') && timer[key] > val.max) {
         throw new Error(`${key} more then ${val.max}`);
       }
     }
     if (timer.delay > this.time) {
       this.time = timer.delay;
     }
+    if (this._findTimer(timer.name)) {
+      throw new Error('Name already exist');
+    }
     this.timers.push(timer);
     return this;
   }
   remove(timerName) {
-    let timer = this._findTimer(timerName);
-    const index = timer.index;
-    timer = timer.timer;
-    if (timer.id) {
-      clearTimeout(timer.id);
-      this.timers.splice(index, 1);
-    } else {
-      this.timers.splice(index, 1);
+    const { index, timer } = this._findTimer(timerName);
+    const timerID = timer?.id;
+    if (timerID) {
+      clearTimeout(timerID);
     }
+    this.timers.splice(index, 1);
   }
   _findTimer(timerName) {
     for (const [index, val] of this.timers.entries()) {
@@ -61,9 +54,9 @@ class TimersManager {
     return (...args) => {
       let { name, job } = timer;
       let log = {};
-      job = (...args) => {
+      const callback = (...args) => {
         try {
-          job(...args);
+          return job(...args);
         } catch (err) {
           log.error = {
             name: err.name,
@@ -75,11 +68,11 @@ class TimersManager {
       log = {
         name: name,
         in: args,
-        out: job(...args),
+        out: callback(...args),
         created: new Date(),
       };
       this.logs.push(log);
-      return job(...args);
+      return callback(...args);
     };
   }
   start() {
@@ -155,8 +148,8 @@ const t3 = {
   },
 };
 manager.add(t1).add(t2, 1, 2);
-manager.start();
 manager.add(t3, 1); // 1
+manager.start();
 console.log(1);
 setTimeout(() => {
   manager.pause('t1');
